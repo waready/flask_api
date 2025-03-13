@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Consulta de Inscritos CEPREUNA</title>
+    <!-- Axios -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <!-- jQuery (por si necesitas) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: #f0f4f8;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        #contenedor {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        #graficoInscritos { 
+            max-width: 700px; 
+            margin: 20px auto;
+        }
+        select {
+            padding: 8px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div id="contenedor">
+        <h1>Consulta de Inscritos por Sede</h1>
+
+        <label for="sedeSelect">Seleccionar Sede:</label>
+        <select id="sedeSelect">
+            <option value="">Todos</option>
+            <option value="1">Virtual</option>
+            <option value="2">Juliaca</option>
+            <option value="3">Puno</option>
+            <option value="4">Juli-Chucuito</option>
+            <option value="5">Ayaviri</option>
+            <option value="6">Azángaro</option>
+            <option value="7">Huancané-Moho</option>
+            <option value="8">Ilave</option>
+        </select>
+
+        <div>
+            <canvas id="graficoInscritos"></canvas>
+        </div>
+    </div>
+
+    <script>
+        function obtenerDatos(sede = "") {
+            // Construimos la URL del endpoint Flask
+            const url = sede ? `/obtener_sedes?sede=${sede}` : '/obtener_sedes';
+
+            axios.get(url)
+                .then(response => {
+                    const datos = response.data;
+
+                    // Contar cuántos inscritos hay por programa
+                    const conteoProgramas = {};
+                    datos.forEach(item => {
+                        const programa = item.programa || 'Sin Programa';
+                        if (!conteoProgramas[programa]) {
+                            conteoProgramas[programa] = 0;
+                        }
+                        conteoProgramas[programa]++;
+                    });
+
+                    // Etiquetas (programas) y valores (cantidad) para el gráfico
+                    const etiquetas = Object.keys(conteoProgramas);
+                    const valores = Object.values(conteoProgramas);
+
+                    // DEFINIMOS UN ARREGLO DE COLORES (puedes agregar más si deseas)
+                    const backgroundColorsPalette = [
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(255, 206, 86, 0.7)',
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(153, 102, 255, 0.7)',
+                        'rgba(255, 159, 64, 0.7)',
+                        'rgba(199, 199, 199, 0.7)',
+                        'rgba(83, 102, 255, 0.7)'
+                    ];
+
+                    // Asignamos cada barra a un color según su índice
+                    const backgroundColors = etiquetas.map((_, i) => {
+                        return backgroundColorsPalette[i % backgroundColorsPalette.length];
+                    });
+
+                    // Lo mismo podemos hacer para el borde, si queremos un color más sólido
+                    const borderColors = etiquetas.map((_, i) => {
+                        // Tomamos el mismo color y cambiamos la opacidad a 1
+                        return backgroundColorsPalette[i % backgroundColorsPalette.length].replace('0.7', '1');
+                    });
+
+                    // Obtenemos el contexto 2D del lienzo donde dibujar el gráfico
+                    const ctx = document.getElementById('graficoInscritos').getContext('2d');
+
+                    // Si ya existe un gráfico dibujado, lo destruimos para crear uno nuevo
+                    if (window.miGrafico) {
+                        window.miGrafico.destroy();
+                    }
+
+                    // Creamos el gráfico con Chart.js
+                    window.miGrafico = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: etiquetas,
+                            datasets: [{
+                                label: 'Número de Inscritos',
+                                data: valores,
+                                backgroundColor: backgroundColors,
+                                borderColor: borderColors,
+                                borderWidth: 1,
+                                borderRadius: 5
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: { display: true },
+                                datalabels: { anchor: 'end', align: 'top' }
+                            },
+                            scales: {
+                                x: {
+                                    ticks: { color: '#333' }
+                                },
+                                y: {
+                                    ticks: { color: '#333', stepSize: 1 }
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => console.error('Error al obtener datos:', error));
+        }
+
+        // Cuando se cambia la sede en el <select>, volvemos a pedir datos
+        document.getElementById('sedeSelect').addEventListener('change', function() {
+            const sedeSeleccionada = this.value;
+            obtenerDatos(sedeSeleccionada);
+        });
+
+        // Al cargar la página, pedimos todos los datos (sin filtro)
+        obtenerDatos();
+    </script>
+</body>
+</html>
