@@ -99,7 +99,7 @@ def index():
     Ruta principal que renderiza 'Index.html'.
     Asegúrate de tener un templates/Index.html para que funcione.
     """
-    return render_template('Index.html')
+    return render_template('index.html')
 
 @app.route('/obtener_sedes', methods=['GET'])
 def obtener_sedes():
@@ -143,8 +143,9 @@ def obtener_sedes():
                 # Agregamos el resultado final a la lista
                 datos_procesados.append({
                     'sede': registro.get('sedes_id'),
-                    'programa': programa
+                    'programa': (registro.get('sede') or {}).get('denominacion', 'Sin Denominación')
                 })
+
 
             return jsonify(datos_procesados)
 
