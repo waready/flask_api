@@ -2,27 +2,40 @@ from flask import Flask, render_template, jsonify, request
 import requests
 import json
 from bs4 import BeautifulSoup
+import os
 
 app = Flask(__name__)
 
 def obtener_token(session):
+    """
+    Obtiene el token CSRF de la página de login.
+    Lanza una excepción si no puede.
+    """
     url = 'https://sistemas.cepreuna.edu.pe/login'
-    respuesta = session.get(url)
-    if respuesta.status_code != 200:
-        print('Error al obtener el token CSRF.')
-        return None
+    try:
+        respuesta = session.get(url, timeout=10)
+        respuesta.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Error al acceder a la URL de login: {e}", exc_info=True)
+        raise
 
     soup = BeautifulSoup(respuesta.text, 'html.parser')
-    token = soup.find('input', {'name': '_token'})['value']
-    return token
+    token_input = soup.find('input', {'name': '_token'})
+    if not token_input:
+        app.logger.error("No se encontró el input '_token' en el formulario de login.")
+        raise ValueError("No se encontró el token CSRF en la página de login.")
+
+    return token_input.get('value')
 
 def iniciar_sesion(session, email, password):
     """
     Inicia sesión en la plataforma CEPREUNA.
-    Devuelve True si el login es exitoso, False en caso contrario.
+    Retorna True si el login es exitoso, False en caso contrario.
     """
-    token = obtener_token(session)
-    if not token:
+    try:
+        token = obtener_token(session)
+    except Exception as e:
+        app.logger.error(f"Error obteniendo token CSRF: {e}", exc_info=True)
         return False
 
     url = 'https://sistemas.cepreuna.edu.pe/login'
@@ -32,38 +45,50 @@ def iniciar_sesion(session, email, password):
         'password': password
     }
 
-    respuesta = session.post(url, data=datos)
+    try:
+        respuesta = session.post(url, data=datos, timeout=10)
+        respuesta.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Error al hacer POST para iniciar sesión: {e}", exc_info=True)
+        return False
+
+    # Verificamos si realmente entró o se quedó en la misma URL
     if respuesta.ok and respuesta.url != url:
-        print('Inicio de sesión exitoso.')
+        app.logger.info('Inicio de sesión exitoso.')
         return True
     else:
-        print('Error al iniciar sesión.')
+        app.logger.warning('Credenciales inválidas o error de login.')
         return False
 
 def obtener_datos(session):
     """
     Descarga todos los registros paginados de la plataforma CEPREUNA
-    y los retorna en forma de lista de diccionarios.
+    y los retorna como una lista de diccionarios.
+    Lanza excepciones si hay errores en las peticiones.
     """
     todos_los_datos = []
     pagina = 1
 
     while True:
-        url = (f'https://sistemas.cepreuna.edu.pe/intranet/inscripcion/estudiante'
-               f'/lista/data?query=%7B%7D&limit=1000&ascending=1&page={pagina}&byColumn=1')
-        respuesta = session.get(url)
-
-        if respuesta.status_code != 200:
-            print(f'Error al obtener datos de la página {pagina}.')
+        endpoint = (
+            "https://sistemas.cepreuna.edu.pe/intranet/inscripcion/estudiante"
+            "/lista/data?query=%7B%7D&limit=1000&ascending=1"
+            f"&page={pagina}&byColumn=1"
+        )
+        try:
+            respuesta = session.get(endpoint, timeout=10)
+            respuesta.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            app.logger.error(f"Error al obtener datos de la página {pagina}: {e}", exc_info=True)
             break
 
         datos_json = respuesta.json()
-
-        if not datos_json.get('data'):
-            # Si 'data' está vacío, significa que no hay más páginas
+        # Si 'data' está vacío, significa que no hay más páginas
+        data_pagina = datos_json.get('data', [])
+        if not data_pagina:
             break
 
-        todos_los_datos.extend(datos_json['data'])
+        todos_los_datos.extend(data_pagina)
         pagina += 1
 
     return todos_los_datos
@@ -71,48 +96,65 @@ def obtener_datos(session):
 @app.route('/')
 def index():
     """
-    Ruta principal. Renderiza la plantilla 'Index.html'
-    que incluye el código para mostrar el gráfico.
+    Ruta principal que renderiza 'Index.html'.
+    Asegúrate de tener un templates/Index.html para que funcione.
     """
     return render_template('Index.html')
 
 @app.route('/obtener_sedes', methods=['GET'])
-def obtener_datos_endpoint():
+def obtener_sedes():
     """
-    Endpoint que hace:
-      - Iniciar sesión con credenciales fijas (puedes cambiarlas).
-      - Descarga de datos paginados.
-      - Filtra opcionalmente por sede (si ?sede=xxx está en la URL).
-      - Retorna el resultado en formato JSON (que luego usa tu front-end con Axios/Chart.js).
+    Endpoint que:
+      - Inicia sesión (credenciales fijas, ajústalas si es necesario).
+      - Descarga datos paginados.
+      - Filtra opcionalmente por 'sedes_id' usando ?sede=...
+      - Retorna un JSON con los registros resultantes.
     """
-    email = "esflores@cepreuna.edu.pe"  # << Ajusta según sea necesario
-    password = "46386459"              # << Ajusta según sea necesario
+    email = "esflores@cepreuna.edu.pe"   # Ajusta si hace falta
+    password = "46386459"               # Ajusta si hace falta
 
-    # Sede opcional. Ejemplo: /obtener_datos?sede=3
     sede_filtro = request.args.get('sede', None)
 
-    with requests.Session() as session:
-        if iniciar_sesion(session, email, password):
+    try:
+        with requests.Session() as session:
+            # Iniciamos sesión
+            if not iniciar_sesion(session, email, password):
+                return jsonify({'error': 'No se pudo iniciar sesión'}), 401
+
+            # Obtenemos todos los datos
             datos = obtener_datos(session)
-            # Filtrar y preparar la estructura final
+
+            # Procesamos y filtramos
             datos_procesados = []
             for registro in datos:
-                # Verificar si cumple el filtro (si no se especifica, se incluyen todos)
-                if sede_filtro and str(registro['sedes_id']) != sede_filtro:
+                # Si se especificó ?sede=xx, filtramos por sedes_id
+                if sede_filtro and str(registro.get('sedes_id')) != sede_filtro:
                     continue
 
+                # Obtenemos programa (o "Sin Programa" si no existe)
                 programa = registro.get('programa', 'Sin Programa')
+
+                # Si existe la clave 'sede' y 'denominacion' en el JSON:
+                # sede_obj = registro.get('sede', {})
+                # denominacion = sede_obj.get('denominacion', 'Desconocida')
+                #
+                # Pero si solo necesitas 'programa', puedes ignorar esto.
+
+                # Agregamos el resultado final a la lista
                 datos_procesados.append({
-                    'sede': registro['sedes_id'],
-                    'programa': registro['sede']['denominacion']
+                    'sede': registro.get('sedes_id'),
+                    'programa': programa
                 })
 
             return jsonify(datos_procesados)
-        else:
-            return jsonify({'error': 'No se pudo iniciar sesión'}), 401
+
+    except Exception as e:
+        # Cualquier error no controlado
+        app.logger.error(f"Error interno en /obtener_sedes: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    import os
+    # Railway suele proveer el puerto en la variable de entorno PORT
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
-    
+    # Para ver más detalles de errores, pon debug=True solo en desarrollo local
+    app.run(host='0.0.0.0', port=port, debug=True)
