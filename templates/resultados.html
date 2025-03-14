@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estadísticas CEPREUNA</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        table { border-collapse: collapse; width: 50%; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>Estadísticas CEPREUNA</h1>
+
+    <label for="sedes">Seleccionar Sede:</label>
+    <select id="sedes">
+        <option value="">Todas</option>
+        <option value="1">Virtual</option>
+        <option value="2">Juliaca</option>
+        <option value="3">Puno</option>
+        <option value="4">Juli-Chucuito</option>
+        <option value="5">Ayaviri</option>
+        <option value="6">Azángaro</option>
+        <option value="7">Huancané-Moho</option>
+        <option value="8">Ilave</option>
+    </select>
+
+    <div id="resultados"></div>
+
+    <script>
+        document.getElementById('sedes').addEventListener('change', obtenerDatos);
+
+        function obtenerDatos() {
+            const sede = document.getElementById('sedes').value;
+            const url = `/obtener_datos${sede ? '?sede=' + sede : ''}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('resultados').innerHTML = '<p>Error al obtener datos.</p>';
+                        return;
+                    }
+
+                    let html = `<h2>Total Inscritos: ${data.total_inscritos}</h2>`;
+
+                    html += '<h3>Áreas y Cantidad:</h3>';
+                    html += '<table><thead><tr><th>Área</th><th>Cantidad</th></tr></thead><tbody>';
+                    for (const [area, cantidad] of Object.entries(data.areas)) {
+                        html += `<tr><td>${area}</td><td>${cantidad}</td></tr>`;
+                    }
+                    html += '</tbody></table>';
+
+                    html += '<h3>Turnos:</h3>';
+                    for (const [area, turnos] of Object.entries(data.turnos)) {
+                        html += `<h4>${area}</h4>`;
+                        html += '<table><thead><tr><th>Turno</th><th>Cantidad</th></tr></thead><tbody>';
+                        for (const [turno, cantidad] of Object.entries(turnos)) {
+                            html += `<tr><td>${turno}</td><td>${cantidad}</td></tr>`;
+                        }
+                        html += '</tbody></table>';
+                    }
+
+                    document.getElementById('resultados').innerHTML = html;
+                })
+                .catch(error => {
+                    document.getElementById('resultados').innerHTML = '<p>Error al conectar con la API.</p>';
+                });
+        }
+
+        obtenerDatos(); // Cargar todos los datos al iniciar la página.
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+

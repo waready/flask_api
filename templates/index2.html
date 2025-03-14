@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sistema de Inscripción</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { margin: 20px; }
+        .chart-container {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+        }
+        .chart-item {
+            margin: 20px;
+            width: 45%;
+        }
+        table tr:nth-child(odd) { background-color: rgb(195, 197, 197); }
+        table tr:nth-child(even) { background-color: #e6e6e6; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 class="mb-4">Bienvenido al Sistema de Inscripción CEPREUNA</h1>
+    <button class="btn btn-primary mb-3" id="actualizar">Actualizar</button>
+
+    <div class="mb-3">
+        <label for="sede" class="form-label">Seleccionar Sede:</label>
+        <select id="sede" class="form-select">
+            <option value="">Todas</option>
+            <option value="1">Virtual</option>
+            <option value="2">Juliaca</option>
+            <option value="3">Puno</option>
+            <option value="4">Juli-Chucuito</option>
+            <option value="5">Ayaviri</option>
+            <option value="6">Azángaro</option>
+            <option value="7">Huancané-Moho</option>
+            <option value="8">Ilave</option>
+        </select>
+    </div>
+
+    <div id="resultados"></div>
+</div>
+
+<script>
+    document.getElementById('sede').addEventListener('change', obtenerDatos);
+    document.getElementById('actualizar').addEventListener('click', obtenerDatos);
+    obtenerDatos();
+
+    function obtenerDatos() {
+        const sede = document.getElementById('sede').value;
+        const url = '/obtener_datos' + (sede ? `?sede=${sede}` : '');
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('resultados').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                    return;
+                }
+
+                const { total_inscritos, areas, turnos, fecha_actualizacion } = data;
+
+                let contentHTML = `<h2>Total de inscritos: ${total_inscritos}</h2>`;
+                contentHTML += '<div class="chart-container">';
+                contentHTML += '<div class="chart-item"><canvas id="graficoAreas"></canvas></div>';
+                contentHTML += '<div class="chart-item"><canvas id="graficoBarras"></canvas></div>';
+                contentHTML += '</div>';
+
+                let tableHTML = '<h3>Áreas</h3><table class="table table-bordered"><thead><tr><th>Área</th><th>Total</th></tr></thead><tbody>';
+
+                const areaLabels = [];
+                const areaCounts = [];
+
+                for (const [area, total] of Object.entries(areas)) {
+                    areaLabels.push(area);
+                    areaCounts.push(total);
+                    tableHTML += `<tr><td>${area}</td><td>${total}</td></tr>`;
+                }
+
+                tableHTML += '</tbody></table>';
+
+                let turnosHTML = '<h3>Turnos</h3><table class="table table-bordered"><thead><tr><th>Área</th><th>Turno</th><th>Total</th></tr></thead><tbody>';
+
+                for (const [area, turnosArea] of Object.entries(turnos)) {
+                    for (const [turno, total] of Object.entries(turnosArea)) {
+                        turnosHTML += `<tr><td>${area}</td><td>${turno}</td><td>${total}</td></tr>`;
+                    }
+                }
+
+                turnosHTML += '</tbody></table>';
+
+                document.getElementById('resultados').innerHTML = contentHTML + tableHTML + turnosHTML;
+
+                const pieCtx = document.getElementById('graficoAreas').getContext('2d');
+                const barCtx = document.getElementById('graficoBarras').getContext('2d');
+
+                new Chart(pieCtx, {
+                    type: 'pie',
+                    data: {
+                        labels: areaLabels,
+                        datasets: [{
+                            label: 'Total de Inscritos por Área',
+                            data: areaCounts,
+                            backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#FFCD56', '#36A2EB'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { position: 'bottom' }
+                        }
+                    }
+                });
+
+                new Chart(barCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: areaLabels,
+                        datasets: [{
+                            label: 'Total de Inscritos por Área',
+                            data: areaCounts,
+                            backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#FFCD56', '#36A2EB'],
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error al obtener los datos:', error);
+            });
+    }
+</script>
+
+</body>
+</html>
+
+
+
+

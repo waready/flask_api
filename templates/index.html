@@ -1,164 +1,286 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <title>Consulta de Inscritos CEPREUNA</title>
-    <!-- Axios -->
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-    <!-- jQuery (por si necesitas) -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <meta charset="UTF-8">
+  <title>Dashboard con Select de Sedes (Tailwind + Flowbite + ApexCharts)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            background-color: #f0f4f8;
-            margin: 0;
-            padding: 20px;
-        }
-        h1 {
-            text-align: center;
-            color: #333;
-        }
-        #contenedor {
-            max-width: 800px;
-            margin: auto;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        #graficoInscritos { 
-            max-width: 700px; 
-            margin: 20px auto;
-        }
-        select {
-            padding: 8px;
-            margin: 10px 0;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-        }
-    </style>
+  <!-- TailwindCSS (CDN) -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.2/dist/tailwind.min.css" rel="stylesheet" />
+
+  <!-- Flowbite (CDN) -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.6.5/flowbite.min.css" rel="stylesheet" />
+
+  <!-- ApexCharts (CDN) para gráficos -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+  <style>
+    /* Alternar fondos de fila en tablas, estilo “zebra” */
+    table tr:nth-child(odd)  { background-color: rgb(195, 197, 197); }
+    table tr:nth-child(even) { background-color: #e6e6e6; }
+
+    /* Pequeñas mejoras de layout */
+    .chart-container {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+    .chart-box {
+      flex: 1 1 300px;
+      background: white;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+  </style>
 </head>
-<body>
-    <div id="contenedor">
-        <h1>Consulta de Inscritos por Sede</h1>
 
-        <label for="sedeSelect">Seleccionar Sede:</label>
-        <select id="sedeSelect">
-            <option value="">Todos</option>
-            <option value="1">Virtual</option>
-            <option value="2">Juliaca</option>
-            <option value="3">Puno</option>
-            <option value="4">Juli-Chucuito</option>
-            <option value="5">Ayaviri</option>
-            <option value="6">Azángaro</option>
-            <option value="7">Huancané-Moho</option>
-            <option value="8">Ilave</option>
-        </select>
+<body class="bg-gray-100 text-gray-800">
 
-        <div>
-            <canvas id="graficoInscritos"></canvas>
+  <!-- NAVBAR (fijo arriba) -->
+  <nav class="fixed top-0 z-50 w-full bg-white border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+    <div class="px-4 py-2 flex items-center justify-between">
+      <!-- Branding y botón hamburguesa (móvil) -->
+      <div class="flex items-center">
+        <button data-drawer-target="sidebar" data-drawer-toggle="sidebar" aria-controls="sidebar"
+                type="button"
+                class="inline-flex items-center p-2 text-sm text-gray-500 rounded-lg sm:hidden 
+                       hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 
+                       dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600 mr-2">
+          <span class="sr-only">Abrir menú</span>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+          </svg>
+          
+        </button>
+        <a href="#" class="text-xl font-semibold text-gray-900 dark:text-white">Mi Dashboard</a>
+      </div>
+      <!-- Menú usuario -->
+      <div class="flex items-center">
+        <div class="relative">
+          <button type="button"
+                  class="flex items-center text-sm bg-gray-200 rounded-full px-3 py-1 
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  id="userMenuButton" data-dropdown-toggle="userDropdown">
+            <svg class="w-5 h-5 text-gray-700 dark:text-gray-200 mr-1" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd"
+                    d="M10 2a5 5 0 00-5 5v1a5 5 0 01-4 4.9v1.6a2 2 0 002 2h14a2 2 0 002-2v-1.6a5 5 0 01-4-4.9V7a5 5 0 00-5-5z"
+                    clip-rule="evenodd"></path>
+            </svg>
+            Usuario
+            <svg class="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.253l3.71-4.02a.75.75 0 011.08 1.04l-4.242 4.6a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
+                    clip-rule="evenodd"></path>
+            </svg>
+          </button>
+          <!-- Dropdown user -->
+          <div id="userDropdown"
+               class="hidden absolute right-0 z-50 mt-2 w-48 bg-white rounded-lg shadow-lg dark:bg-gray-700">
+            <ul class="py-2 text-sm text-gray-700 dark:text-gray-200">
+              <li><a href="#" class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">Perfil</a></li>
+              <li><a href="#" class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600">Configuración</a></li>
+              <li><hr class="my-2 border-gray-200 dark:border-gray-600"></li>
+              <li>
+                <a href="#" class="block px-4 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-600">
+                  Cerrar sesión
+                </a>
+              </li>
+            </ul>
+          </div>
         </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- SIDEBAR (colapsable en móvil) -->
+  <aside id="sidebar"
+         class="fixed top-0 left-0 z-40 w-64 h-screen pt-16 transition-transform 
+                -translate-x-full sm:translate-x-0 bg-gray-50 border-r border-gray-200 
+                dark:bg-gray-800 dark:border-gray-700" aria-label="Sidebar">
+    <div class="h-full px-3 pb-4 overflow-y-auto">
+      <ul class="space-y-2">
+        <li>
+          <a href="#" class="flex items-center p-2 text-base font-medium text-gray-900 rounded-lg 
+                            hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">
+            <svg class="w-6 h-6 text-gray-500 transition duration-75 dark:text-gray-400 
+                       group-hover:text-gray-900 dark:group-hover:text-white flex-shrink-0"
+                 fill="currentColor" viewBox="0 0 20 20">
+              <path d="M3 3h7v7H3V3zm0 9h7v5H3v-5zm9-9h5v5h-5V3zm0 6h5v8h-5V9z"></path>
+            </svg>
+            <span class="ml-3">Dashboard</span>
+          </a>
+        </li>
+        <li>
+          <a href="#" class="flex items-center p-2 text-base font-medium text-gray-900 rounded-lg 
+                            hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">
+            <svg class="w-6 h-6 text-gray-500 transition duration-75 dark:text-gray-400 
+                       group-hover:text-gray-900 dark:group-hover:text-white flex-shrink-0"
+                 fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11H9v4h2V7zM9 13h2v2H9v-2z"
+                    clip-rule="evenodd"></path>
+            </svg>
+            <span class="ml-3">Reportes</span>
+          </a>
+        </li>
+        <!-- Agrega más enlaces si gustas -->
+      </ul>
+    </div>
+  </aside>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <div class="p-4 sm:ml-64 pt-16">
+    <!-- Título general -->
+    <h1 class="text-2xl font-bold mb-4">CEPREUNA - Inscritos por Sede</h1>
+
+    <!-- Select de Sedes (Tailwind, estilo bonito) -->
+    <div class="mb-4">
+      <label for="sede" class="block mb-2 font-semibold text-gray-700 dark:text-gray-200">
+        Seleccionar Sede:
+      </label>
+      <select id="sede"
+              class="block w-60 px-3 py-2 text-sm bg-white border border-gray-300 rounded-md 
+                     focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent
+                     dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200">
+        <option value="">Todas</option>
+        <option value="1">Virtual</option>
+        <option value="2">Juliaca</option>
+        <option value="3">Puno</option>
+        <option value="4">Juli-Chucuito</option>
+        <option value="5">Ayaviri</option>
+        <option value="6">Azángaro</option>
+        <option value="7">Huancané-Moho</option>
+        <option value="8">Ilave</option>
+      </select>
     </div>
 
-    <script>
-        function obtenerDatos(sede = "") {
-            // Construimos la URL del endpoint Flask
-            const url = sede ? `/obtener_sedes?sede=${sede}` : '/obtener_sedes';
+    <!-- Donde se mostrará la info (inscritos, tablas, gráficos) -->
+    <div id="contenido" class="mt-6"></div>
 
-            axios.get(url)
-                .then(response => {
-                    const datos = response.data;
+  </div>
 
-                    // Contar cuántos inscritos hay por programa
-                    const conteoProgramas = {};
-                    datos.forEach(item => {
-                        const programa = item.programa || 'Sin Programa';
-                        if (!conteoProgramas[programa]) {
-                            conteoProgramas[programa] = 0;
-                        }
-                        conteoProgramas[programa]++;
-                    });
+  <!-- Flowbite JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.6.5/flowbite.min.js"></script>
 
-                    // Etiquetas (programas) y valores (cantidad) para el gráfico
-                    const etiquetas = Object.keys(conteoProgramas);
-                    const valores = Object.values(conteoProgramas);
+  <script>
+    // Variables globales de gráficos
+    let pieChart, barChart;
 
-                    // DEFINIMOS UN ARREGLO DE COLORES (puedes agregar más si deseas)
-                    const backgroundColorsPalette = [
-                        'rgba(255, 99, 132, 0.7)',
-                        'rgba(54, 162, 235, 0.7)',
-                        'rgba(255, 206, 86, 0.7)',
-                        'rgba(75, 192, 192, 0.7)',
-                        'rgba(153, 102, 255, 0.7)',
-                        'rgba(255, 159, 64, 0.7)',
-                        'rgba(199, 199, 199, 0.7)',
-                        'rgba(83, 102, 255, 0.7)'
-                    ];
+    // Al cargar la página, asociamos el onchange del select 'sede'
+    document.getElementById('sede').addEventListener('change', () => {
+      const sedeValor = document.getElementById('sede').value;
+      obtenerDatos(sedeValor);
+    });
 
-                    // Asignamos cada barra a un color según su índice
-                    const backgroundColors = etiquetas.map((_, i) => {
-                        return backgroundColorsPalette[i % backgroundColorsPalette.length];
-                    });
+    // Llamamos una vez al principio con sede="" (todas)
+    obtenerDatos('');
 
-                    // Lo mismo podemos hacer para el borde, si queremos un color más sólido
-                    const borderColors = etiquetas.map((_, i) => {
-                        // Tomamos el mismo color y cambiamos la opacidad a 1
-                        return backgroundColorsPalette[i % backgroundColorsPalette.length].replace('0.7', '1');
-                    });
+    function obtenerDatos(sede) {
+      const url = '/obtener_datos' + (sede ? `?sede=${sede}` : '');
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          if (data.error) {
+            document.getElementById('contenido').innerHTML = `
+              <div class="bg-red-100 text-red-600 p-3 rounded-md">Error: ${data.error}</div>
+            `;
+            return;
+          }
 
-                    // Obtenemos el contexto 2D del lienzo donde dibujar el gráfico
-                    const ctx = document.getElementById('graficoInscritos').getContext('2d');
+          // data = { areas: { "Biomédicas":3, "Ingenierías":2, ... }, total_inscritos: 9, turnos: {...} }
+          const { areas, total_inscritos, turnos } = data;
 
-                    // Si ya existe un gráfico dibujado, lo destruimos para crear uno nuevo
-                    if (window.miGrafico) {
-                        window.miGrafico.destroy();
-                    }
+          // 1) Construir HTML principal
+          let html = `
+            <h2 class="text-xl font-semibold mb-2">Total de inscritos: ${total_inscritos}</h2>
+            <p class="text-sm text-gray-600 mb-4">Datos obtenidos para la sede: ${sede || 'Todas'}</p>
+            <div class="chart-container">
+              <div class="chart-box">
+                <h3 class="text-md font-bold mb-2 text-gray-800 dark:text-gray-200">Distribución por Áreas (Pie)</h3>
+                <div id="pieChart"></div>
+              </div>
+              <div class="chart-box">
+                <h3 class="text-md font-bold mb-2 text-gray-800 dark:text-gray-200">Distribución por Áreas (Barras)</h3>
+                <div id="barChart"></div>
+              </div>
+            </div>
+          `;
 
-                    // Creamos el gráfico con Chart.js
-                    window.miGrafico = new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: etiquetas,
-                            datasets: [{
-                                label: 'Número de Inscritos',
-                                data: valores,
-                                backgroundColor: backgroundColors,
-                                borderColor: borderColors,
-                                borderWidth: 1,
-                                borderRadius: 5
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: { display: true },
-                                datalabels: { anchor: 'end', align: 'top' }
-                            },
-                            scales: {
-                                x: {
-                                    ticks: { color: '#333' }
-                                },
-                                y: {
-                                    ticks: { color: '#333', stepSize: 1 }
-                                }
-                            }
-                        }
-                    });
-                })
-                .catch(error => console.error('Error al obtener datos:', error));
-        }
+          // 2) Construir tabla de Turnos
+          html += `
+          
+            <h3 class="text-lg font-semibold mt-6 mb-2">Turnos por Área</h3>
+            <div class="overflow-x-auto">
+              <div class="chart-box">
+              <table class="w-full border border-gray-300 text-sm">
+                <thead class="bg-gray-200">
+                  <tr>
+                    <th class="py-2 px-3 border">Área</th>
+                    <th class="py-2 px-3 border">Turno</th>
+                    <th class="py-2 px-3 border">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+          `;
+          // turnos = { "Biomédicas": { "Noche":3 }, "Ingenierías": {...}, ... }
+          for (const [area, turnosArea] of Object.entries(turnos)) {
+            for (const [turno, totalT] of Object.entries(turnosArea)) {
+              html += `
+                <tr>
+                  <td class="py-2 px-3 border">${area}</td>
+                  <td class="py-2 px-3 border">${turno}</td>
+                  <td class="py-2 px-3 border text-center">${totalT}</td>
+                </tr>
+              `;
+            }
+          }
+          html += `</tbody></table></div></div>`; // Cierra tabla
 
-        // Cuando se cambia la sede en el <select>, volvemos a pedir datos
-        document.getElementById('sedeSelect').addEventListener('change', function() {
-            const sedeSeleccionada = this.value;
-            obtenerDatos(sedeSeleccionada);
+          document.getElementById('contenido').innerHTML = html;
+
+          // 3) Armar arrays para gráficos
+          // areas = { "Biomédicas":3, "Ingenierías":2, "Sociales":4 }
+          const areaLabels = Object.keys(areas);   // ["Biomédicas","Ingenierías","Sociales"]
+          const areaCounts = Object.values(areas); // [3,2,4]
+
+          // 4) Crear el Pie Chart
+          if (pieChart) pieChart.destroy();
+          pieChart = new ApexCharts(document.querySelector("#pieChart"), {
+            chart: { type: 'pie', height: 300 },
+            labels: areaLabels,
+            series: areaCounts,
+            colors: ['#FFA500','#3b82f6','#6366f1','#4BC0C0','#9966FF','#FF9F40'],
+            legend: { position: 'bottom' }
+          });
+          pieChart.render();
+
+          // 5) Crear el Bar Chart
+          if (barChart) barChart.destroy();
+          barChart = new ApexCharts(document.querySelector("#barChart"), {
+            chart: { type: 'bar', height: 300 },
+            xaxis: { categories: areaLabels },
+            series: [{
+              name: 'Inscritos',
+              data: areaCounts
+            }],
+            colors: ['#3b82f6','#6366f1','#4BC0C0','#9966FF','#FF9F40','#FFA500'],
+            plotOptions: {
+              bar: { borderRadius: 5 }
+            },
+            legend: { show: false }
+          });
+          barChart.render();
+        })
+        .catch(error => {
+          console.error('Error al obtener datos:', error);
+          document.getElementById('contenido').innerHTML = `
+            <div class="bg-red-100 text-red-600 p-3 rounded-md">
+              Error al obtener datos del servidor.
+            </div>
+          `;
         });
-
-        // Al cargar la página, pedimos todos los datos (sin filtro)
-        obtenerDatos();
-    </script>
+    }
+  </script>
 </body>
 </html>
