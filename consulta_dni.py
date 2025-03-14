@@ -3,6 +3,7 @@ import requests
 import json
 from bs4 import BeautifulSoup
 from collections import defaultdict
+import os
 
 app = Flask(__name__, template_folder='templates')
 
@@ -108,7 +109,10 @@ def obtener_datos_endpoint():
             return jsonify({'error': 'No se pudo iniciar sesión'}), 401
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Railway suele proveer el puerto en la variable de entorno PORT
+    port = int(os.environ.get('PORT', 5000))
+    # Para ver más detalles de errores, pon debug=True solo en desarrollo local
+    app.run(host='0.0.0.0', port=port, debug=True)
 
 
 
